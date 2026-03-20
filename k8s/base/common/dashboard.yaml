@@ -1,0 +1,108 @@
+---
+# APISIX Dashboard configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-config
+data:
+  conf.yaml: |
+    conf:
+      listen:
+        host: 0.0.0.0
+        port: 9000
+      etcd:
+        endpoints:
+          - "http://etcd.common.svc.cluster.local:2379"
+        prefix: "/apisix"
+      log:
+        error_log:
+          level: warn
+          file_path: /dev/stderr
+        access_log:
+          file_path: /dev/stdout
+    authentication:
+      secret: dashboard-jwt-secret-key
+      expire_time: 3600
+      users:
+        - username: admin
+          password: admin
+---
+# APISIX Dashboard Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix-dashboard
+  labels:
+    app: apisix-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apisix-dashboard
+  template:
+    metadata:
+      labels:
+        app: apisix-dashboard
+    spec:
+      initContainers:
+        - name: wait-for-etcd
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for etcd..."
+              until wget -qO- http://etcd.common.svc.cluster.local:2379/health 2>/dev/null | grep -q '"health"'; do
+                echo "etcd not ready, retrying in 2s..."
+                sleep 2
+              done
+              echo "etcd is ready!"
+      containers:
+        - name: dashboard
+          image: apache/apisix-dashboard:3.0.1-alpine
+          ports:
+            - containerPort: 9000
+              name: dashboard
+          volumeMounts:
+            - name: dashboard-config
+              mountPath: /usr/local/apisix-dashboard/conf/conf.yaml
+              subPath: conf.yaml
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: dashboard-config
+          configMap:
+            name: dashboard-config
+---
+# APISIX Dashboard Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix-dashboard
+  labels:
+    app: apisix-dashboard
+spec:
+  type: ClusterIP
+  ports:
+    - name: dashboard
+      port: 9000
+      targetPort: 9000
+  selector:
+    app: apisix-dashboard

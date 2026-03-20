@@ -1,0 +1,109 @@
+---
+# ConfigMap holding the route configuration script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-route-config
+data:
+  configure.sh: |
+    #!/bin/sh
+    set -e
+
+    ADMIN_URL="http://apisix.common.svc.cluster.local:9180/apisix/admin"
+    # ADMIN_KEY is injected from Secret via env var
+
+    echo "Waiting for APISIX Admin API..."
+    until wget -qO- "$ADMIN_URL/routes" --header="X-API-KEY: $ADMIN_KEY" >/dev/null 2>&1; do
+      echo "  not ready, retrying in 3s..."
+      sleep 3
+    done
+    echo "APISIX Admin API is ready!"
+
+    echo ""
+    echo "Creating upstream: backend (backend-svc.app:3001)..."
+    wget -qO- --method=PUT "$ADMIN_URL/upstreams/1" \
+      --header="X-API-KEY: $ADMIN_KEY" \
+      --header="Content-Type: application/json" \
+      --body-data='{
+        "type": "roundrobin",
+        "nodes": { "backend-svc.app.svc.cluster.local:3001": 1 }
+      }'
+
+    echo ""
+    echo "Creating upstream: frontend (frontend-svc.app:3000)..."
+    wget -qO- --method=PUT "$ADMIN_URL/upstreams/2" \
+      --header="X-API-KEY: $ADMIN_KEY" \
+      --header="Content-Type: application/json" \
+      --body-data='{
+        "type": "roundrobin",
+        "nodes": { "frontend-svc.app.svc.cluster.local:3000": 1 }
+      }'
+
+    echo ""
+    echo "Creating route: /api/* -> backend..."
+    wget -qO- --method=PUT "$ADMIN_URL/routes/1" \
+      --header="X-API-KEY: $ADMIN_KEY" \
+      --header="Content-Type: application/json" \
+      --body-data='{
+        "name": "backend-api",
+        "uri": "/api/*",
+        "upstream_id": "1",
+        "priority": 10
+      }'
+
+    echo ""
+    echo "Creating route: /* -> frontend..."
+    wget -qO- --method=PUT "$ADMIN_URL/routes/2" \
+      --header="X-API-KEY: $ADMIN_KEY" \
+      --header="Content-Type: application/json" \
+      --body-data='{
+        "name": "frontend-catch-all",
+        "uri": "/*",
+        "upstream_id": "2",
+        "priority": 1
+      }'
+
+    echo ""
+    echo "Routes configured successfully!"
+---
+# Job that runs once to seed APISIX routes
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: apisix-route-init
+  labels:
+    app: apisix-route-init
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: apisix-route-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: configure
+          image: busybox:1.36
+          command: ["sh", "/scripts/configure.sh"]
+          env:
+            - name: ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: apisix-admin-secret
+                  key: admin-key
+          volumeMounts:
+            - name: config
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config
+          configMap:
+            name: apisix-route-config
+            defaultMode: 0755

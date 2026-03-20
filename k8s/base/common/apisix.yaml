@@ -1,0 +1,134 @@
+---
+# APISIX configuration pointing to etcd
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-config
+data:
+  config.yaml: |
+    apisix:
+      node_listen: 9080
+      enable_admin: true
+      admin_key:
+        - name: admin
+          key: ${{ADMIN_KEY}}
+          role: admin
+
+    deployment:
+      admin:
+        admin_listen:
+          ip: 0.0.0.0
+          port: 9180
+        allow_admin:
+          - 127.0.0.1/32
+          - 10.244.0.0/16  # Adjust this to your specific K8s Pod CIDR  
+        https_admin: false
+        admin_key_required: true
+      etcd:
+        host:
+          - "http://etcd.common.svc.cluster.local:2379"
+        prefix: "/apisix"
+---
+# APISIX Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix
+  labels:
+    app: apisix
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apisix
+  template:
+    metadata:
+      labels:
+        app: apisix
+    spec:
+      initContainers:
+        - name: wait-for-etcd
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for etcd..."
+              until wget -qO- http://etcd.common.svc.cluster.local:2379/health 2>/dev/null | grep -q '"health"'; do
+                echo "etcd not ready, retrying in 2s..."
+                sleep 2
+              done
+              echo "etcd is ready!"
+        # Render the admin key into config.yaml from Secret
+        - name: render-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              sed "s/\${{ADMIN_KEY}}/$ADMIN_KEY/" /config-template/config.yaml > /apisix-conf/config.yaml
+          env:
+            - name: ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: apisix-admin-secret
+                  key: admin-key
+          volumeMounts:
+            - name: apisix-config-template
+              mountPath: /config-template
+            - name: apisix-conf
+              mountPath: /apisix-conf
+      containers:
+        - name: apisix
+          image: apache/apisix:3.8.0-debian
+          ports:
+            - containerPort: 9080
+              name: proxy
+            - containerPort: 9180
+              name: admin
+          volumeMounts:
+            - name: apisix-conf
+              mountPath: /usr/local/apisix/conf/config.yaml
+              subPath: config.yaml
+          readinessProbe:
+            tcpSocket:
+              port: 9080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: apisix-config-template
+          configMap:
+            name: apisix-config
+        - name: apisix-conf
+          emptyDir: {}
+---
+# APISIX Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix
+  labels:
+    app: apisix
+spec:
+  type: ClusterIP
+  ports:
+    - name: proxy
+      port: 9080
+      targetPort: 9080
+    - name: admin
+      port: 9180
+      targetPort: 9180
+  selector:
+    app: apisix
