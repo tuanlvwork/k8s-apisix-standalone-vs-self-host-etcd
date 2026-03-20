@@ -9,10 +9,6 @@ data:
     apisix:
       node_listen: 9080
       enable_admin: true
-      admin_key:
-        - name: admin
-          key: ${{ADMIN_KEY}}
-          role: admin
 
     deployment:
       admin:
@@ -20,10 +16,13 @@ data:
           ip: 0.0.0.0
           port: 9180
         allow_admin:
-          - 127.0.0.1/32
-          - 10.244.0.0/16  # Adjust this to your specific K8s Pod CIDR  
+          - 0.0.0.0/0
         https_admin: false
         admin_key_required: true
+        admin_key:
+          - name: admin
+            key: ${{ADMIN_KEY}}
+            role: admin
       etcd:
         host:
           - "http://etcd.common.svc.cluster.local:2379"
