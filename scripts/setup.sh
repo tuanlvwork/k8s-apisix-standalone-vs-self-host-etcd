@@ -102,13 +102,11 @@ step "apisix  →  common namespace"
 kubectl wait --for=condition=ready pod -l app=apisix -n common --timeout=120s 2>/dev/null && \
   success "apisix is ready" || fail "apisix timeout"
 
-step "backend  →  app namespace"
-kubectl wait --for=condition=ready pod -l app=backend -n app --timeout=120s 2>/dev/null && \
-  success "backend is ready" || fail "backend timeout"
-
-step "frontend  →  app namespace"
-kubectl wait --for=condition=ready pod -l app=frontend -n app --timeout=120s 2>/dev/null && \
-  success "frontend is ready" || fail "frontend timeout"
+for svc in product-service order-service storefront admin; do
+  step "${svc}  →  app namespace"
+  kubectl wait --for=condition=ready pod -l "app=${svc}" -n app --timeout=120s 2>/dev/null && \
+    success "${svc} is ready" || fail "${svc} timeout"
+done
 
 # 5. Route init job
 section "APISIX ROUTES"
@@ -127,6 +125,7 @@ echo -e "  ${CYAN}${BOLD}║${NC}  ${ROCKET}  ${GREEN}${BOLD}Setup complete!${NC
 echo -e "  ${CYAN}${BOLD}║${NC}                                                      ${CYAN}${BOLD}║${NC}"
 echo -e "  ${CYAN}${BOLD}║${NC}  ${DIM}Next steps:${NC}                                          ${CYAN}${BOLD}║${NC}"
 echo -e "  ${CYAN}${BOLD}║${NC}    ${ARROW}  ${BOLD}./scripts/port-forward.sh${NC}                      ${CYAN}${BOLD}║${NC}"
-echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Then open:${NC} ${BLUE}http://localhost:9080/${NC}                ${CYAN}${BOLD}║${NC}"
+echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Storefront:${NC} ${BLUE}http://localhost:9080/services/testing-apisix/storefront/${NC}  ${CYAN}${BOLD}║${NC}"
+echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Admin:     ${NC} ${BLUE}http://localhost:9080/services/testing-apisix/admin/${NC}       ${CYAN}${BOLD}║${NC}"
 echo -e "  ${CYAN}${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""

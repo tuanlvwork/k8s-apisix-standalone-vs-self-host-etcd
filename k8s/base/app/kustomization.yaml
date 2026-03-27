@@ -4,8 +4,10 @@ kind: Kustomization
 namespace: app
 
 resources:
-  - backend.yaml
-  - frontend.yaml
+  - product-service.yaml
+  - order-service.yaml
+  - storefront.yaml
+  - admin.yaml
 
 labels:
   - pairs:

@@ -2,35 +2,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: storefront
   labels:
-    app: backend
+    app: storefront
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: storefront
   template:
     metadata:
       labels:
-        app: backend
+        app: storefront
     spec:
       containers:
-        - name: backend
-          image: sandbox-backend:latest
+        - name: storefront
+          image: sandbox-storefront:latest
           imagePullPolicy: Never
           ports:
-            - containerPort: 3001
+            - containerPort: 3000
           readinessProbe:
             httpGet:
-              path: /api/health
-              port: 3001
+              path: /services/storefront
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /api/health
-              port: 3001
+              path: /services/storefront
+              port: 3000
             initialDelaySeconds: 10
             periodSeconds: 15
           resources:
@@ -44,13 +44,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-svc
+  name: storefront-svc
   labels:
-    app: backend
+    app: storefront
 spec:
   type: ClusterIP
   ports:
-    - port: 3001
-      targetPort: 3001
+    - port: 80
+      targetPort: 3000
   selector:
-    app: backend
+    app: storefront

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'APISIX Sandbox - Frontend',
-  description: 'NextJS frontend for APISIX standalone sandbox',
+  title: 'Storefront - Ecommerce',
+  description: 'Customer-facing storefront',
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0, padding: '2rem', backgroundColor: '#0a0a0a', color: '#ededed' }}>
+      <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0, padding: 0, backgroundColor: '#0a0a0a', color: '#ededed' }}>
         {children}
       </body>
     </html>

@@ -22,7 +22,7 @@ case "$COMPONENT" in
     NS="common"
     COLOR="${BLUE}"
     ;;
-  backend|frontend)
+  product-service|order-service|storefront|admin)
     NS="app"
     COLOR="${GREEN}"
     ;;
@@ -37,10 +37,12 @@ case "$COMPONENT" in
     echo -e "  ${DIM}┌────────────────────────────────────────────┐${NC}"
     echo -e "  ${DIM}│${NC}  ${BOLD}Component${NC}     ${BOLD}Namespace${NC}                    ${DIM}│${NC}"
     echo -e "  ${DIM}│${NC}  ${DIM}─────────     ─────────${NC}                    ${DIM}│${NC}"
-    echo -e "  ${DIM}│${NC}  ${BLUE}etcd${NC}          common                       ${DIM}│${NC}"
-    echo -e "  ${DIM}│${NC}  ${BLUE}apisix${NC}        common                       ${DIM}│${NC}"
-    echo -e "  ${DIM}│${NC}  ${GREEN}backend${NC}       app                          ${DIM}│${NC}"
-    echo -e "  ${DIM}│${NC}  ${GREEN}frontend${NC}      app                          ${DIM}│${NC}"
+    echo -e "  ${DIM}│${NC}  ${BLUE}etcd${NC}             common                    ${DIM}│${NC}"
+    echo -e "  ${DIM}│${NC}  ${BLUE}apisix${NC}           common                    ${DIM}│${NC}"
+    echo -e "  ${DIM}│${NC}  ${GREEN}product-service${NC}  app                       ${DIM}│${NC}"
+    echo -e "  ${DIM}│${NC}  ${GREEN}order-service${NC}    app                       ${DIM}│${NC}"
+    echo -e "  ${DIM}│${NC}  ${GREEN}storefront${NC}       app                       ${DIM}│${NC}"
+    echo -e "  ${DIM}│${NC}  ${GREEN}admin${NC}            app                       ${DIM}│${NC}"
     echo -e "  ${DIM}└────────────────────────────────────────────┘${NC}"
     echo ""
     exit 1

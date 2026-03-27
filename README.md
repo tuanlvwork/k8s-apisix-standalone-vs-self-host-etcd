@@ -14,25 +14,34 @@ Internet (localhost via port-forward)
     ┌───▼───┐
     │  etcd  │  ← Configuration store (common ns)
     └───────┘
+        │  cross-namespace DNS routing
         │
-   cross-namespace DNS routing
-        │
-   ┌────┴────┐
-   │         │
-┌──▼──┐  ┌──▼───┐
-│ BE  │  │  FE  │    ← app namespace
-└─────┘  └──────┘
-NestJS    NextJS
-:3001     :3000
+   ┌────┴─────────────────────┐
+   │                          │
+┌──▼───────────┐  ┌───────────▼──────────┐
+│ product-svc  │  │    order-service      │   ← NestJS APIs
+│ :3001        │  │    :3002              │     (app ns)
+└──────────────┘  └──────────────────────┘
+┌──────────────┐  ┌──────────────────────┐
+│  storefront  │  │       admin          │   ← Next.js apps
+│  :3000       │  │       :3000          │     (app ns)
+└──────────────┘  └──────────────────────┘
 ```
 
 **Namespaces:**
 - `common` — APISIX gateway + etcd
-- `app` — backend + frontend
+- `app` — product-service, order-service, storefront, admin
 
-**Routes (cross-namespace DNS):**
-- `/api/*` → `backend-svc.app:3001`
-- `/*` → `frontend-svc.app:3000`
+**Routes (all prefixed `/services/testing-apisix`):**
+
+| Path | Target service | Port |
+|------|---------------|------|
+| `/storefront/api/v1/products` | `product-service` API | 3001 |
+| `/storefront/api/v1/orders` | `order-service` API | 3002 |
+| `/admin/api/v1/products` | `product-service` API | 3001 |
+| `/admin/api/v1/orders` | `order-service` API | 3002 |
+| `/storefront/*` | `storefront` Next.js | 3000 |
+| `/admin/*` | `admin` Next.js | 3000 |
 
 ## Prerequisites
 
@@ -44,50 +53,57 @@ NestJS    NextJS
 ## Quickstart
 
 ```bash
-# 1. Start everything
+# 1. Start everything (Minikube + images + K8s deploy + wait)
 ./scripts/setup.sh
 
 # 2. Port-forward APISIX gateway
 ./scripts/port-forward.sh
 
 # 3. Test
-curl http://localhost:9080/api/health
-open http://localhost:9080/
+BASE="http://localhost:9080/services/testing-apisix"
+curl "$BASE/storefront/api/v1/products"
+curl "$BASE/storefront/api/v1/orders"
+open "$BASE/storefront/"
+open "$BASE/admin/"
 ```
 
 ## Scripts Reference
 
 | Script | Description |
 |--------|-------------|
-| `setup.sh` | Full setup: start Minikube, build images, deploy, wait for routes |
-| `deploy.sh` | Apply Kustomize overlay (`kubectl apply -k`) |
-| `build-images.sh` | Build Docker images in Minikube's Docker |
-| `status.sh` | Show pod/service status across both namespaces |
-| `logs.sh <component>` | Tail logs (auto-resolves namespace) |
-| `port-forward.sh` | Forward APISIX to localhost:9080 |
+| `setup.sh` | Full setup: start Minikube, build images, deploy, wait for all pods |
+| `deploy.sh [overlay]` | Apply Kustomize overlay (default: `dev`) |
+| `build-images.sh` | Build all 4 app images inside Minikube's Docker daemon |
+| `status.sh` | Show pod/service/deployment status across both namespaces |
+| `logs.sh <component>` | Tail logs — accepts `etcd`, `apisix`, `product-service`, `order-service`, `storefront`, `admin` |
+| `port-forward.sh [port]` | Forward APISIX proxy to `localhost:9080` (default) |
 | `cleanup.sh [--stop-minikube]` | Delete both namespaces, optionally stop Minikube |
 
-> **Note:** Route configuration is now a K8s Job (`apisix-route-init`) that runs automatically on deploy.
+> **Note:** Route configuration is seeded by a K8s Job (`apisix-route-init`) that runs automatically on deploy.
 
 ## Project Structure (Kustomize)
 
 ```
 ├── apps/
-│   ├── backend/                    # NestJS API
-│   └── frontend/                   # NextJS app
+│   ├── product-service/        # NestJS — products API  (:3001)
+│   ├── order-service/          # NestJS — orders API    (:3002)
+│   ├── storefront/             # Next.js — customer UI  (:3000)
+│   └── admin/                  # Next.js — admin UI     (:3000)
 ├── k8s/
 │   ├── base/
-│   │   ├── common/                 # etcd + APISIX (namespace: common)
+│   │   ├── common/             # etcd + APISIX (namespace: common)
 │   │   │   ├── kustomization.yaml
 │   │   │   ├── etcd.yaml
 │   │   │   ├── apisix.yaml
-│   │   │   └── apisix-route-init.yaml  # Job: seeds routes
-│   │   └── app/                    # backend + frontend (namespace: app)
+│   │   │   └── apisix-route-init.yaml  # Job: seeds routes into etcd
+│   │   └── app/                # 4 microservices (namespace: app)
 │   │       ├── kustomization.yaml
-│   │       ├── backend.yaml
-│   │       └── frontend.yaml
+│   │       ├── product-service.yaml
+│   │       ├── order-service.yaml
+│   │       ├── storefront.yaml
+│   │       └── admin.yaml
 │   └── overlays/
-│       └── dev/                    # dev environment
+│       └── dev/                # dev environment
 │           ├── kustomization.yaml  # ← entry point
 │           └── namespace.yaml
 ├── scripts/
@@ -110,10 +126,15 @@ kubectl apply -k k8s/overlays/dev/
 ## Troubleshooting
 
 ```bash
-./scripts/status.sh              # Check both namespaces
-./scripts/logs.sh apisix         # APISIX logs (common ns)
-./scripts/logs.sh backend        # Backend logs (app ns)
-kubectl delete job apisix-route-init -n common  # Re-run route init
-kubectl apply -k k8s/overlays/dev/              # (Job recreated)
-./scripts/cleanup.sh && ./scripts/setup.sh      # Full restart
+./scripts/status.sh                    # Check both namespaces
+./scripts/logs.sh apisix               # APISIX logs (common ns)
+./scripts/logs.sh product-service      # product-service logs (app ns)
+./scripts/logs.sh storefront           # storefront logs (app ns)
+
+# Re-run route seeding
+kubectl delete job apisix-route-init -n common
+kubectl apply -k k8s/overlays/dev/
+
+# Full restart
+./scripts/cleanup.sh && ./scripts/setup.sh
 ```

@@ -19,52 +19,155 @@ data:
     done
     echo "APISIX Admin API is ready!"
 
+    # ─── Upstreams ───────────────────────────────────────────────
     echo ""
-    echo "Creating upstream: backend (backend-svc.app:3001)..."
+    echo "Creating upstream 1: product-service (product-svc.app:80)..."
     curl -s -X PUT "$ADMIN_URL/upstreams/1" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "type": "roundrobin",
-        "nodes": { "backend-svc.app.svc.cluster.local:3001": 1 }
+        "nodes": { "product-svc.app.svc.cluster.local:80": 1 }
       }'
 
     echo ""
-    echo "Creating upstream: frontend (frontend-svc.app:3000)..."
+    echo "Creating upstream 2: order-service (order-svc.app:80)..."
     curl -s -X PUT "$ADMIN_URL/upstreams/2" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "type": "roundrobin",
-        "nodes": { "frontend-svc.app.svc.cluster.local:3000": 1 }
+        "nodes": { "order-svc.app.svc.cluster.local:80": 1 }
       }'
 
     echo ""
-    echo "Creating route: /api/* -> backend..."
+    echo "Creating upstream 3: storefront (storefront-svc.app:80)..."
+    curl -s -X PUT "$ADMIN_URL/upstreams/3" \
+      -H "X-API-KEY: $ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "type": "roundrobin",
+        "nodes": { "storefront-svc.app.svc.cluster.local:80": 1 }
+      }'
+
+    echo ""
+    echo "Creating upstream 4: admin (admin-svc.app:80)..."
+    curl -s -X PUT "$ADMIN_URL/upstreams/4" \
+      -H "X-API-KEY: $ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "type": "roundrobin",
+        "nodes": { "admin-svc.app.svc.cluster.local:80": 1 }
+      }'
+
+    # ─── Routes ──────────────────────────────────────────────────
+
+    # --- Storefront ---
+    echo ""
+    echo "Route 1: /services/testing-apisix/storefront/api/v1/products* -> product-svc"
     curl -s -X PUT "$ADMIN_URL/routes/1" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "name": "backend-api",
-        "uri": "/api/*",
+        "name": "storefront-products-api",
+        "uri": "/services/testing-apisix/storefront/api/v1/products*",
         "upstream_id": "1",
-        "priority": 10
+        "priority": 20,
+        "plugins": {
+          "proxy-rewrite": {
+            "regex_uri": ["^/services/testing-apisix/storefront(/api/.*)", "$1"]
+          }
+        }
       }'
 
     echo ""
-    echo "Creating route: /* -> frontend..."
+    echo "Route 2: /services/testing-apisix/storefront/api/v1/orders* -> order-svc"
     curl -s -X PUT "$ADMIN_URL/routes/2" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "name": "frontend-catch-all",
-        "uri": "/*",
+        "name": "storefront-orders-api",
+        "uri": "/services/testing-apisix/storefront/api/v1/orders*",
         "upstream_id": "2",
-        "priority": 1
+        "priority": 20,
+        "plugins": {
+          "proxy-rewrite": {
+            "regex_uri": ["^/services/testing-apisix/storefront(/api/.*)", "$1"]
+          }
+        }
+      }'
+
+    echo ""
+    echo "Route 3: /services/testing-apisix/storefront/* -> storefront-svc (catch-all)"
+    curl -s -X PUT "$ADMIN_URL/routes/3" \
+      -H "X-API-KEY: $ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "storefront-catch-all",
+        "uri": "/services/testing-apisix/storefront/*",
+        "upstream_id": "3",
+        "priority": 1,
+        "plugins": {}
+      }'
+
+    # --- Admin ---
+    echo ""
+    echo "Route 4: /services/testing-apisix/admin/api/v1/products* -> product-svc"
+    curl -s -X PUT "$ADMIN_URL/routes/4" \
+      -H "X-API-KEY: $ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "admin-products-api",
+        "uri": "/services/testing-apisix/admin/api/v1/products*",
+        "upstream_id": "1",
+        "priority": 20,
+        "plugins": {
+          "proxy-rewrite": {
+            "regex_uri": ["^/services/testing-apisix/admin(/api/.*)", "$1"]
+          }
+        }
+      }'
+
+    echo ""
+    echo "Route 5: /services/testing-apisix/admin/api/v1/orders* -> order-svc"
+    curl -s -X PUT "$ADMIN_URL/routes/5" \
+      -H "X-API-KEY: $ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "admin-orders-api",
+        "uri": "/services/testing-apisix/admin/api/v1/orders*",
+        "upstream_id": "2",
+        "priority": 20,
+        "plugins": {
+          "proxy-rewrite": {
+            "regex_uri": ["^/services/testing-apisix/admin(/api/.*)", "$1"]
+          }
+        }
+      }'
+
+    echo ""
+    echo "Route 6: /services/testing-apisix/admin/* -> admin-svc (catch-all)"
+    curl -s -X PUT "$ADMIN_URL/routes/6" \
+      -H "X-API-KEY: $ADMIN_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "admin-catch-all",
+        "uri": "/services/testing-apisix/admin/*",
+        "upstream_id": "4",
+        "priority": 1,
+        "plugins": {}
       }'
 
     echo ""
     echo "Routes configured successfully!"
+    echo ""
+    echo "Route summary:"
+    echo "  /services/testing-apisix/storefront/api/v1/products* -> product-svc:80  (priority 20)"
+    echo "  /services/testing-apisix/storefront/api/v1/orders*   -> order-svc:80    (priority 20)"
+    echo "  /services/testing-apisix/storefront/*                 -> storefront:80   (priority 1)"
+    echo "  /services/testing-apisix/admin/api/v1/products*       -> product-svc:80  (priority 20)"
+    echo "  /services/testing-apisix/admin/api/v1/orders*         -> order-svc:80    (priority 20)"
+    echo "  /services/testing-apisix/admin/*                      -> admin:80        (priority 1)"
 ---
 # Job that runs once to seed APISIX routes
 apiVersion: batch/v1
@@ -84,7 +187,6 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: configure
-          # Switched from busybox to curlimages/curl
           image: curlimages/curl:8.6.0
           command: ["sh", "/scripts/configure.sh"]
           env:

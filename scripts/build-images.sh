@@ -32,17 +32,15 @@ step "Pointing Docker CLI to Minikube daemon..."
 eval $(minikube docker-env)
 success "Docker context switched"
 
-echo ""
-step "Building ${BOLD}backend${NC} image..."
-info "sandbox-backend:latest  ←  ${APPS_DIR}/backend"
-docker build -t sandbox-backend:latest "$APPS_DIR/backend"
-success "backend image built"
+SERVICES=(product-service order-service storefront admin)
 
-echo ""
-step "Building ${BOLD}frontend${NC} image..."
-info "sandbox-frontend:latest  ←  ${APPS_DIR}/frontend"
-docker build -t sandbox-frontend:latest "$APPS_DIR/frontend"
-success "frontend image built"
+for svc in "${SERVICES[@]}"; do
+  echo ""
+  step "Building ${BOLD}${svc}${NC} image..."
+  info "sandbox-${svc}:latest  ←  ${APPS_DIR}/${svc}"
+  docker build -t "sandbox-${svc}:latest" "$APPS_DIR/$svc"
+  success "${svc} image built"
+done
 
 echo ""
 echo -e "  ${DIM}┌──────────────────────────────────────────────────┐${NC}"

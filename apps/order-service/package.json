@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "order-service",
   "version": "1.0.0",
-  "description": "NestJS backend for APISIX sandbox",
+  "description": "Order management microservice",
   "scripts": {
     "build": "nest build",
     "start": "nest start",
