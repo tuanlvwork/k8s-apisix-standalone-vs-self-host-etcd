@@ -64,47 +64,47 @@ data:
 
     # --- Storefront ---
     echo ""
-    echo "Route 1: /services/testing-apisix/storefront/api/v1/products* -> product-svc"
+    echo "Route 1: /services/storefront/api/v1/products* -> product-svc"
     curl -s -X PUT "$ADMIN_URL/routes/1" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "name": "storefront-products-api",
-        "uri": "/services/testing-apisix/storefront/api/v1/products*",
+        "uri": "/services/storefront/api/v1/products*",
         "upstream_id": "1",
         "priority": 20,
         "plugins": {
           "proxy-rewrite": {
-            "regex_uri": ["^/services/testing-apisix/storefront(/api/.*)", "$1"]
+            "regex_uri": ["^/services/storefront(/api/.*)", "$1"]
           }
         }
       }'
 
     echo ""
-    echo "Route 2: /services/testing-apisix/storefront/api/v1/orders* -> order-svc"
+    echo "Route 2: /services/storefront/api/v1/orders* -> order-svc"
     curl -s -X PUT "$ADMIN_URL/routes/2" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "name": "storefront-orders-api",
-        "uri": "/services/testing-apisix/storefront/api/v1/orders*",
+        "uri": "/services/storefront/api/v1/orders*",
         "upstream_id": "2",
         "priority": 20,
         "plugins": {
           "proxy-rewrite": {
-            "regex_uri": ["^/services/testing-apisix/storefront(/api/.*)", "$1"]
+            "regex_uri": ["^/services/storefront(/api/.*)", "$1"]
           }
         }
       }'
 
     echo ""
-    echo "Route 3: /services/testing-apisix/storefront/* -> storefront-svc (catch-all)"
+    echo "Route 3: /services/storefront, /services/storefront/* -> storefront-svc (catch-all)"
     curl -s -X PUT "$ADMIN_URL/routes/3" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "name": "storefront-catch-all",
-        "uri": "/services/testing-apisix/storefront/*",
+        "uris": ["/services/storefront", "/services/storefront/*"],
         "upstream_id": "3",
         "priority": 1,
         "plugins": {}
@@ -112,47 +112,47 @@ data:
 
     # --- Admin ---
     echo ""
-    echo "Route 4: /services/testing-apisix/admin/api/v1/products* -> product-svc"
+    echo "Route 4: /services/admin/api/v1/products* -> product-svc"
     curl -s -X PUT "$ADMIN_URL/routes/4" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "name": "admin-products-api",
-        "uri": "/services/testing-apisix/admin/api/v1/products*",
+        "uri": "/services/admin/api/v1/products*",
         "upstream_id": "1",
         "priority": 20,
         "plugins": {
           "proxy-rewrite": {
-            "regex_uri": ["^/services/testing-apisix/admin(/api/.*)", "$1"]
+            "regex_uri": ["^/services/admin(/api/.*)", "$1"]
           }
         }
       }'
 
     echo ""
-    echo "Route 5: /services/testing-apisix/admin/api/v1/orders* -> order-svc"
+    echo "Route 5: /services/admin/api/v1/orders* -> order-svc"
     curl -s -X PUT "$ADMIN_URL/routes/5" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "name": "admin-orders-api",
-        "uri": "/services/testing-apisix/admin/api/v1/orders*",
+        "uri": "/services/admin/api/v1/orders*",
         "upstream_id": "2",
         "priority": 20,
         "plugins": {
           "proxy-rewrite": {
-            "regex_uri": ["^/services/testing-apisix/admin(/api/.*)", "$1"]
+            "regex_uri": ["^/services/admin(/api/.*)", "$1"]
           }
         }
       }'
 
     echo ""
-    echo "Route 6: /services/testing-apisix/admin/* -> admin-svc (catch-all)"
+    echo "Route 6: /services/admin, /services/admin/* -> admin-svc (catch-all)"
     curl -s -X PUT "$ADMIN_URL/routes/6" \
       -H "X-API-KEY: $ADMIN_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "name": "admin-catch-all",
-        "uri": "/services/testing-apisix/admin/*",
+        "uris": ["/services/admin", "/services/admin/*"],
         "upstream_id": "4",
         "priority": 1,
         "plugins": {}
@@ -162,12 +162,12 @@ data:
     echo "Routes configured successfully!"
     echo ""
     echo "Route summary:"
-    echo "  /services/testing-apisix/storefront/api/v1/products* -> product-svc:80  (priority 20)"
-    echo "  /services/testing-apisix/storefront/api/v1/orders*   -> order-svc:80    (priority 20)"
-    echo "  /services/testing-apisix/storefront/*                 -> storefront:80   (priority 1)"
-    echo "  /services/testing-apisix/admin/api/v1/products*       -> product-svc:80  (priority 20)"
-    echo "  /services/testing-apisix/admin/api/v1/orders*         -> order-svc:80    (priority 20)"
-    echo "  /services/testing-apisix/admin/*                      -> admin:80        (priority 1)"
+    echo "  /services/storefront/api/v1/products* -> product-svc:80  (priority 20)"
+    echo "  /services/storefront/api/v1/orders*   -> order-svc:80    (priority 20)"
+    echo "  /services/storefront[/*]              -> storefront:80   (priority 1)"
+    echo "  /services/admin/api/v1/products*      -> product-svc:80  (priority 20)"
+    echo "  /services/admin/api/v1/orders*        -> order-svc:80    (priority 20)"
+    echo "  /services/admin[/*]                   -> admin:80        (priority 1)"
 ---
 # Job that runs once to seed APISIX routes
 apiVersion: batch/v1

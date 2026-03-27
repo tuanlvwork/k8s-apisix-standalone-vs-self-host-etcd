@@ -89,6 +89,11 @@ step "Building images inside Minikube..."
 
 # 3. K8s manifests
 section "KUBERNETES DEPLOY"
+step "Deleting stale route-init job (if any)..."
+# The Job must be deleted before apply so it re-runs with fresh route config.
+# kubectl apply on an existing completed Job has no effect — routes would never re-seed.
+kubectl delete job/apisix-route-init -n common --ignore-not-found 1>/dev/null && \
+  info "Stale job removed (will be re-created by deploy)" || true
 step "Applying Kustomize manifests..."
 "$SCRIPT_DIR/deploy.sh"
 
@@ -125,7 +130,7 @@ echo -e "  ${CYAN}${BOLD}║${NC}  ${ROCKET}  ${GREEN}${BOLD}Setup complete!${NC
 echo -e "  ${CYAN}${BOLD}║${NC}                                                      ${CYAN}${BOLD}║${NC}"
 echo -e "  ${CYAN}${BOLD}║${NC}  ${DIM}Next steps:${NC}                                          ${CYAN}${BOLD}║${NC}"
 echo -e "  ${CYAN}${BOLD}║${NC}    ${ARROW}  ${BOLD}./scripts/port-forward.sh${NC}                      ${CYAN}${BOLD}║${NC}"
-echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Storefront:${NC} ${BLUE}http://localhost:9080/services/testing-apisix/storefront/${NC}  ${CYAN}${BOLD}║${NC}"
-echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Admin:     ${NC} ${BLUE}http://localhost:9080/services/testing-apisix/admin/${NC}       ${CYAN}${BOLD}║${NC}"
+echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Storefront:${NC} ${BLUE}http://localhost:9080/services/storefront/${NC}         ${CYAN}${BOLD}║${NC}"
+echo -e "  ${CYAN}${BOLD}║${NC}    ${DIM}Admin:     ${NC} ${BLUE}http://localhost:9080/services/admin/${NC}              ${CYAN}${BOLD}║${NC}"
 echo -e "  ${CYAN}${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
